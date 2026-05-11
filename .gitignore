@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+ 
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+ 
+# Environment variables
+.env
+*.env
+ 
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+ 
+# Streamlit
+.streamlit/secrets.toml
+ 
+# Face data (privacy)
+known_faces/*.jpg
+known_faces/*.jpeg
+known_faces/*.png
+known_faces/*.pkl
+ 
+# Attendance data (privacy)
+attendance/attendance.csv
+ 
+# DeepFace model cache
+~/.deepface/
+*.h5
+*.pkl
+ 
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
+ 
+# Logs
+*.log
