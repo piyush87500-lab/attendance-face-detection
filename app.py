@@ -222,6 +222,10 @@ html, body, [class*="css"] {
 /* Hide default sidebar toggle */
 div[data-testid="stSidebar"] { display: none; }
 [data-testid="collapsedControl"] { display: none; }
+.topnav { display: none; }
+.topnav { display: none; }
+div[data-testid="stSidebar"] { display: none; }
+[data-testid="collapsedControl"] { display: none; }
 
 /* Upload hint */
 .upload-hint { font-size: 0.78rem; color: #9a6b3a; margin-top: 0.4rem; }
@@ -245,31 +249,32 @@ today_df = load_attendance(today_only=True)
 
 pages = ["📸 Live Detection", "➕ Register Face", "📋 Attendance Log", "👥 Manage Faces"]
 
+# ── Top nav bar (HTML visual only — decorative) ────────────────────────────────
 nav_html = '<div class="topnav"><div><div class="topnav-title">🎯 FaceAttend</div><div class="topnav-subtitle">Smart Attendance System</div></div><div class="nav-links">'
 for p in pages:
     active = "active" if st.session_state.page == p else ""
-    nav_html += f'<span class="nav-btn {active}" onclick="">{p}</span>'
+    nav_html += f'<span class="nav-btn {active}">{p}</span>'
 nav_html += '</div></div>'
 st.markdown(nav_html, unsafe_allow_html=True)
 
-# Use columns for nav buttons (Streamlit-compatible clickable)
-c1, c2, c3, c4, c5 = st.columns([2, 1.5, 1.5, 1.5, 1.5])
+# ── Stats + clickable nav buttons (single row, no duplication) ─────────────────
+c1, c2, c3, c4, c5 = st.columns([2.2, 1.4, 1.4, 1.4, 1.4])
 with c1:
-    st.markdown(f"**👥 {known_count} Registered &nbsp;|&nbsp; ✅ {len(today_df)} Present Today**")
+    st.markdown(f'<p style="margin:0.5rem 0;font-weight:700;color:#3d1f0a;">👥 {known_count} Registered &nbsp;|&nbsp; ✅ {len(today_df)} Present Today</p>', unsafe_allow_html=True)
 with c2:
-    if st.button("📸 Live Detection", use_container_width=True):
+    if st.button("📸 Live Detection", use_container_width=True, key="nav1"):
         st.session_state.page = "📸 Live Detection"
         st.rerun()
 with c3:
-    if st.button("➕ Register Face", use_container_width=True):
+    if st.button("➕ Register Face", use_container_width=True, key="nav2"):
         st.session_state.page = "➕ Register Face"
         st.rerun()
 with c4:
-    if st.button("📋 Attendance Log", use_container_width=True):
+    if st.button("📋 Attendance Log", use_container_width=True, key="nav3"):
         st.session_state.page = "📋 Attendance Log"
         st.rerun()
 with c5:
-    if st.button("👥 Manage Faces", use_container_width=True):
+    if st.button("👥 Manage Faces", use_container_width=True, key="nav4"):
         st.session_state.page = "👥 Manage Faces"
         st.rerun()
 
@@ -321,8 +326,14 @@ if page == "📸 Live Detection":
             img = Image.open(uploaded).convert("RGB")
             run_detection(np.array(img))
     with tab2:
-        st.info("📷 Allow camera access, then click **Take Photo**.")
-        cam_img = st.camera_input("Snapshot", label_visibility="collapsed")
+        st.markdown("""
+        <div class="info-box">
+        📷 <strong>How to use webcam:</strong><br>
+        1. Click the camera button below<br>
+        2. Allow camera access when your browser asks<br>
+        3. Click <strong>Take Photo</strong> — the photo will be scanned automatically
+        </div>""", unsafe_allow_html=True)
+        cam_img = st.camera_input("Take a photo to scan")
         if cam_img:
             img = Image.open(cam_img).convert("RGB")
             run_detection(np.array(img))
