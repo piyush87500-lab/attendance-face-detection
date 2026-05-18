@@ -249,6 +249,33 @@ today_df = load_attendance(today_only=True)
 
 pages = ["📸 Live Detection", "➕ Register Face", "📋 Attendance Log", "👥 Manage Faces"]
 
+# ── App Heading ───────────────────────────────────────────────────────────────
+st.markdown('''
+<div style="text-align:center; padding: 1.5rem 0 0.5rem 0;">
+    <span style="
+        font-family: Playfair Display, Georgia, serif;
+        font-size: 3.2rem;
+        font-weight: 900;
+        letter-spacing: 3px;
+        background: linear-gradient(135deg, #6b3a1f, #c0622a, #e8a045, #c0622a, #6b3a1f);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        text-shadow: none;
+        display: inline-block;
+    ">🎯 FaceAttend</span>
+    <div style="
+        font-family: Lato, sans-serif;
+        font-size: 0.8rem;
+        letter-spacing: 6px;
+        text-transform: uppercase;
+        color: #9a6b3a;
+        margin-top: -6px;
+    ">Smart Attendance System</div>
+    <div style="width:80px;height:3px;background:linear-gradient(90deg,#6b3a1f,#e8a045,#6b3a1f);margin:0.6rem auto 0 auto;border-radius:2px;"></div>
+</div>
+''', unsafe_allow_html=True)
+
 # ── Top nav bar (HTML visual only — decorative) ────────────────────────────────
 nav_html = '<div class="topnav"><div><div class="topnav-title">🎯 FaceAttend</div><div class="topnav-subtitle">Smart Attendance System</div></div><div class="nav-links">'
 for p in pages:
@@ -319,21 +346,23 @@ if page == "📸 Live Detection":
 
     st.markdown('<div class="info-box">ℹ️ First scan may take 20–40 seconds while the recognition model loads. Subsequent scans are fast.</div>', unsafe_allow_html=True)
 
-    tab1, tab2 = st.tabs(["📁 Upload Image", "📷 Webcam Snapshot"])
+    tab1, tab2 = st.tabs(["📁 Upload Image", "📷 Webcam"])
     with tab1:
+        st.markdown('''<div class="info-box">📌 Take a photo using your phone or camera app, then upload it here to mark attendance.</div>''', unsafe_allow_html=True)
         uploaded = st.file_uploader("Drop an image to scan", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
         if uploaded:
             img = Image.open(uploaded).convert("RGB")
             run_detection(np.array(img))
     with tab2:
-        st.markdown("""
-        <div class="info-box">
-        📷 <strong>How to use webcam:</strong><br>
-        1. Click the camera button below<br>
-        2. Allow camera access when your browser asks<br>
-        3. Click <strong>Take Photo</strong> — the photo will be scanned automatically
-        </div>""", unsafe_allow_html=True)
-        cam_img = st.camera_input("Take a photo to scan")
+        st.markdown('''<div class="info-box">
+        📷 <strong>Steps to use webcam:</strong><br><br>
+        1️⃣ Click the <strong>camera icon</strong> button below<br>
+        2️⃣ Your browser will ask for camera permission — click <strong>Allow</strong><br>
+        3️⃣ Once the camera opens, click <strong>Take Photo</strong><br>
+        4️⃣ The image will be scanned automatically<br><br>
+        ⚠️ If camera does not open: try on <strong>Chrome browser</strong> and make sure you are on <strong>HTTPS</strong>
+        </div>''', unsafe_allow_html=True)
+        cam_img = st.camera_input(" ", label_visibility="collapsed")
         if cam_img:
             img = Image.open(cam_img).convert("RGB")
             run_detection(np.array(img))
