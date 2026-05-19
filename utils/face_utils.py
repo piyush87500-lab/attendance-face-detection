@@ -14,30 +14,15 @@ ENCODINGS_FILE = os.path.join(KNOWN_FACES_DIR, "encodings.pkl")
 os.makedirs(KNOWN_FACES_DIR, exist_ok=True)
 os.makedirs(ATTENDANCE_DIR, exist_ok=True)
 
-face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+face_cascade = cv2.CascadeClassifier(
+    cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+)
 
 
-def clean_orphan_attendance():
-    """Remove attendance records for people no longer in the face database."""
-    try:
-        if not os.path.exists(ATTENDANCE_FILE):
-            return
-        _, registered_names = _load_encodings_db_raw()
-        if not registered_names:
-            # No one registered — wipe all attendance
-            pd.DataFrame(columns=["Name", "Date", "Timestamp"]).to_csv(ATTENDANCE_FILE, index=False)
-            return
-        df = pd.read_csv(ATTENDANCE_FILE)
-        if df.empty:
-            return
-        df = df[df["Name"].isin(registered_names)]
-        df.to_csv(ATTENDANCE_FILE, index=False)
-    except Exception:
-        pass
+# ── Internal helpers ──────────────────────────────────────────────────────────
 
-
-def _load_encodings_db_raw():
-    """Internal: load encodings without circular dependency."""
+def _load_encodings_db():
+    """Load encodings and names from pickle file."""
     if not os.path.exists(ENCODINGS_FILE):
         return [], []
     try:
@@ -48,17 +33,17 @@ def _load_encodings_db_raw():
         return [], []
 
 
-def _extract_histogram(gray_face: np.ndarray) -> np.ndarray:
-    """Extract a normalized LBP-style histogram from a grayscale face crop."""
-    resized = cv2.resize(gray_face, (100, 100))
-    # Compute histogram of pixel intensities as simple face descriptor
-    hist = cv2.calcHist([resized], [0], None, [256], [0, 256])
-    cv2.normalize(hist, hist)
-    return hist.flatten()
+def _save_encodings_db(encodings, names):
+    """Save encodings and names to pickle file."""
+    try:
+        with open(ENCODINGS_FILE, "wb") as f:
+            pickle.dump({"encodings": encodings, "names": names}, f)
+    except Exception:
+        pass
 
 
-def _detect_faces(frame_rgb: np.ndarray):
-    """Return grayscale image and face bounding boxes."""
+def _detect_faces(frame_rgb):
+    """Detect faces and return (gray_image, bounding_boxes)."""
     gray = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2GRAY)
     faces = face_cascade.detectMultiScale(
         gray, scaleFactor=1.1, minNeighbors=5, minSize=(60, 60)
@@ -66,49 +51,52 @@ def _detect_faces(frame_rgb: np.ndarray):
     return gray, faces
 
 
+def _extract_histogram(gray_face):
+    """Extract normalized histogram descriptor from a grayscale face crop."""
+    resized = cv2.resize(gray_face, (100, 100))
+    hist = cv2.calcHist([resized], [0], None, [256], [0, 256])
+    cv2.normalize(hist, hist)
+    return hist.flatten()
+
+
+# ── Public API ────────────────────────────────────────────────────────────────
+
 def load_known_faces():
-    """Return (encodings_list, names_list) for sidebar count."""
-    if not os.path.exists(ENCODINGS_FILE):
-        return [], []
-    with open(ENCODINGS_FILE, "rb") as f:
-        data = pickle.load(f)
-    names = sorted(set(data.get("names", [])))
-    return list(range(len(names))), names
+    """Return (dummy_list, unique_names) for sidebar count."""
+    _, names = _load_encodings_db()
+    unique = sorted(set(names))
+    return list(range(len(unique))), unique
 
 
-def _load_encodings_db():
-    """Load saved face encodings database."""
-    return _load_encodings_db_raw()
-
-
-def _save_encodings_db(encodings, names):
-    """Save face encodings database."""
-    with open(ENCODINGS_FILE, "wb") as f:
-        pickle.dump({"encodings": encodings, "names": names}, f)
-
-
-def save_known_face(frame_rgb: np.ndarray, name: str) -> str:
-    """Register a face. Returns 'success' | 'no_face' | 'multiple_faces'."""
+def save_known_face(frame_rgb, name):
+    """
+    Detect and register a face.
+    Returns: 'success' | 'no_face' | 'multiple_faces'
+    """
     gray, faces = _detect_faces(frame_rgb)
     if len(faces) == 0:
         return "no_face"
     if len(faces) > 1:
         return "multiple_faces"
 
-    # Save the image
+    # Save image file
     safe_name = name.strip().replace(" ", "_")
-    existing = [f for f in os.listdir(KNOWN_FACES_DIR)
-                if f.startswith(safe_name + "_") and f.endswith(".jpg")]
+    existing = [
+        f for f in os.listdir(KNOWN_FACES_DIR)
+        if f.startswith(safe_name + "_") and f.endswith(".jpg")
+    ]
     idx = len(existing)
     path = os.path.join(KNOWN_FACES_DIR, f"{safe_name}_{idx}.jpg")
-    Image.fromarray(frame_rgb).save(path)
+    try:
+        Image.fromarray(frame_rgb).save(path)
+    except Exception:
+        pass
 
-    # Extract histogram encoding from the face
+    # Extract and save encoding
     x, y, w, h = faces[0]
     face_crop = gray[y:y+h, x:x+w]
     encoding = _extract_histogram(face_crop)
 
-    # Append to database
     encodings, names = _load_encodings_db()
     encodings.append(encoding)
     names.append(name.strip())
@@ -117,8 +105,11 @@ def save_known_face(frame_rgb: np.ndarray, name: str) -> str:
     return "success"
 
 
-def recognize_faces(frame_rgb: np.ndarray):
-    """Recognize faces and return (annotated_rgb, list_of_names)."""
+def recognize_faces(frame_rgb):
+    """
+    Recognize faces in image.
+    Returns: (annotated_rgb, list_of_detected_names)
+    """
     annotated = frame_rgb.copy()
     detected_names = []
 
@@ -133,7 +124,6 @@ def recognize_faces(frame_rgb: np.ndarray):
             face_crop = gray[y:y+h, x:x+w]
             query_enc = _extract_histogram(face_crop)
 
-            # Compare with all known encodings using correlation
             best_score = -1
             best_idx = -1
             for i, enc in enumerate(encodings):
@@ -146,7 +136,6 @@ def recognize_faces(frame_rgb: np.ndarray):
                     best_score = score
                     best_idx = i
 
-            # Threshold: correlation > 0.7 = match
             if best_score > 0.7 and best_idx >= 0:
                 name = names[best_idx]
                 color = (127, 255, 212)
@@ -154,14 +143,16 @@ def recognize_faces(frame_rgb: np.ndarray):
 
         cv2.rectangle(annotated, (x, y), (x+w, y+h), color, 2)
         cv2.rectangle(annotated, (x, y+h-30), (x+w, y+h), color, cv2.FILLED)
-        cv2.putText(annotated, name, (x+6, y+h-8),
-                    cv2.FONT_HERSHEY_DUPLEX, 0.65, (10, 10, 20), 1)
+        cv2.putText(
+            annotated, name, (x+6, y+h-8),
+            cv2.FONT_HERSHEY_DUPLEX, 0.65, (10, 10, 20), 1
+        )
         detected_names.append(name)
 
     return annotated, detected_names
 
 
-def mark_attendance(name: str):
+def mark_attendance(name):
     """Mark attendance once per person per day."""
     now = datetime.now()
     today = now.strftime("%Y-%m-%d")
@@ -174,13 +165,15 @@ def mark_attendance(name: str):
 
     already = ((df["Name"] == name) & (df["Date"] == today)).any()
     if not already:
-        new_row = pd.DataFrame([{"Name": name, "Date": today, "Timestamp": timestamp}])
+        new_row = pd.DataFrame([{
+            "Name": name, "Date": today, "Timestamp": timestamp
+        }])
         df = pd.concat([df, new_row], ignore_index=True)
         df.to_csv(ATTENDANCE_FILE, index=False)
 
 
-def load_attendance(today_only: bool = False, days: int = None) -> pd.DataFrame:
-    """Load attendance CSV with optional filters."""
+def load_attendance(today_only=False, days=None):
+    """Load attendance CSV with optional date filters."""
     if not os.path.exists(ATTENDANCE_FILE):
         return pd.DataFrame(columns=["Name", "Date", "Timestamp"])
     df = pd.read_csv(ATTENDANCE_FILE)
@@ -199,23 +192,18 @@ def load_attendance(today_only: bool = False, days: int = None) -> pd.DataFrame:
     return df
 
 
-def remove_person(name: str):
-    """Remove all encodings for a person from the pickle database."""
+def remove_person(name):
+    """Remove a person from face database and attendance records."""
+    # Remove from encodings pickle
     encodings, names = _load_encodings_db()
-    if not names:
-        return
-
-    # Filter out all entries matching this name
     filtered = [(e, n) for e, n in zip(encodings, names) if n != name]
-
     if filtered:
-        new_encodings, new_names = zip(*filtered)
-        _save_encodings_db(list(new_encodings), list(new_names))
+        new_enc, new_names = zip(*filtered)
+        _save_encodings_db(list(new_enc), list(new_names))
     else:
-        # No faces left — save empty database
         _save_encodings_db([], [])
 
-    # Remove attendance records for this person
+    # Remove attendance records
     try:
         if os.path.exists(ATTENDANCE_FILE):
             df = pd.read_csv(ATTENDANCE_FILE)
@@ -224,16 +212,38 @@ def remove_person(name: str):
     except Exception:
         pass
 
-    # Also try to remove image files (works locally, silently fails on cloud)
-    faces_dir = KNOWN_FACES_DIR
+    # Try removing image files (silently fails on cloud read-only FS)
     safe = name.strip().replace(" ", "_")
     try:
-        all_files = [f for f in os.listdir(faces_dir) if f.endswith((".jpg", ".jpeg", ".png"))]
+        all_files = [
+            f for f in os.listdir(KNOWN_FACES_DIR)
+            if f.endswith((".jpg", ".jpeg", ".png"))
+        ]
         for f in all_files:
             if f.startswith(safe + "_") or f.startswith(safe):
                 try:
-                    os.remove(os.path.join(faces_dir, f))
+                    os.remove(os.path.join(KNOWN_FACES_DIR, f))
                 except Exception:
                     pass
+    except Exception:
+        pass
+
+
+def clean_orphan_attendance():
+    """Remove attendance records for people not in the face database."""
+    try:
+        if not os.path.exists(ATTENDANCE_FILE):
+            return
+        _, registered_names = _load_encodings_db()
+        if not registered_names:
+            pd.DataFrame(columns=["Name", "Date", "Timestamp"]).to_csv(
+                ATTENDANCE_FILE, index=False
+            )
+            return
+        df = pd.read_csv(ATTENDANCE_FILE)
+        if df.empty:
+            return
+        df = df[df["Name"].isin(registered_names)]
+        df.to_csv(ATTENDANCE_FILE, index=False)
     except Exception:
         pass
