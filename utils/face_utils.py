@@ -170,3 +170,34 @@ def load_attendance(today_only: bool = False, days: int = None) -> pd.DataFrame:
     df["Date"] = df["Date"].dt.strftime("%Y-%m-%d")
     df["Timestamp"] = df["Timestamp"].dt.strftime("%Y-%m-%d %H:%M:%S")
     return df
+
+
+def remove_person(name: str):
+    """Remove all encodings for a person from the pickle database."""
+    encodings, names = _load_encodings_db()
+    if not names:
+        return
+
+    # Filter out all entries matching this name
+    filtered = [(e, n) for e, n in zip(encodings, names) if n != name]
+
+    if filtered:
+        new_encodings, new_names = zip(*filtered)
+        _save_encodings_db(list(new_encodings), list(new_names))
+    else:
+        # No faces left — save empty database
+        _save_encodings_db([], [])
+
+    # Also try to remove image files (works locally, silently fails on cloud)
+    faces_dir = KNOWN_FACES_DIR
+    safe = name.strip().replace(" ", "_")
+    try:
+        all_files = [f for f in os.listdir(faces_dir) if f.endswith((".jpg", ".jpeg", ".png"))]
+        for f in all_files:
+            if f.startswith(safe + "_") or f.startswith(safe):
+                try:
+                    os.remove(os.path.join(faces_dir, f))
+                except Exception:
+                    pass
+    except Exception:
+        pass

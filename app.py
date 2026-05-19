@@ -10,7 +10,7 @@ from PIL import Image
 
 from utils.face_utils import (
     load_known_faces, save_known_face, mark_attendance,
-    load_attendance, recognize_faces
+    load_attendance, recognize_faces, remove_person
 )
 
 st.set_page_config(
@@ -481,15 +481,8 @@ elif page == "👥 Manage Faces":
             with col3:
                 st.markdown("<br>", unsafe_allow_html=True)
                 if st.button("🗑 Remove", key=f"del_{safe}"):
-                    for f in imgs:
-                        try:
-                            os.remove(os.path.join(faces_dir, f))
-                        except Exception:
-                            pass
-                    cache = os.path.join(faces_dir, "representations_vgg_face.pkl")
-                    if os.path.exists(cache):
-                        os.remove(cache)
-                    st.success(f"Removed {name}.")
+                    remove_person(name)
+                    st.success(f"✅ Removed {name} from database.")
                     st.session_state.known_encodings, st.session_state.known_names = load_known_faces()
                     st.rerun()
 
