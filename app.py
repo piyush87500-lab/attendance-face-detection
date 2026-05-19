@@ -10,7 +10,7 @@ from PIL import Image
 
 from utils.face_utils import (
     load_known_faces, save_known_face, mark_attendance,
-    load_attendance, recognize_faces, remove_person
+    load_attendance, recognize_faces, remove_person, clean_orphan_attendance
 )
 
 st.set_page_config(
@@ -238,6 +238,7 @@ label { color: #5c3d1e !important; font-weight: 600; }
 
 # ── Session state ──────────────────────────────────────────────────────────────
 if "known_encodings" not in st.session_state:
+    clean_orphan_attendance()  # Remove attendance for unregistered people
     st.session_state.known_encodings, st.session_state.known_names = load_known_faces()
 if "page" not in st.session_state:
     st.session_state.page = "📸 Live Detection"

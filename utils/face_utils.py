@@ -17,6 +17,37 @@ os.makedirs(ATTENDANCE_DIR, exist_ok=True)
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
 
 
+def clean_orphan_attendance():
+    """Remove attendance records for people no longer in the face database."""
+    try:
+        if not os.path.exists(ATTENDANCE_FILE):
+            return
+        _, registered_names = _load_encodings_db_raw()
+        if not registered_names:
+            # No one registered — wipe all attendance
+            pd.DataFrame(columns=["Name", "Date", "Timestamp"]).to_csv(ATTENDANCE_FILE, index=False)
+            return
+        df = pd.read_csv(ATTENDANCE_FILE)
+        if df.empty:
+            return
+        df = df[df["Name"].isin(registered_names)]
+        df.to_csv(ATTENDANCE_FILE, index=False)
+    except Exception:
+        pass
+
+
+def _load_encodings_db_raw():
+    """Internal: load encodings without circular dependency."""
+    if not os.path.exists(ENCODINGS_FILE):
+        return [], []
+    try:
+        with open(ENCODINGS_FILE, "rb") as f:
+            data = pickle.load(f)
+        return data.get("encodings", []), data.get("names", [])
+    except Exception:
+        return [], []
+
+
 def _extract_histogram(gray_face: np.ndarray) -> np.ndarray:
     """Extract a normalized LBP-style histogram from a grayscale face crop."""
     resized = cv2.resize(gray_face, (100, 100))
@@ -47,11 +78,7 @@ def load_known_faces():
 
 def _load_encodings_db():
     """Load saved face encodings database."""
-    if not os.path.exists(ENCODINGS_FILE):
-        return [], []
-    with open(ENCODINGS_FILE, "rb") as f:
-        data = pickle.load(f)
-    return data.get("encodings", []), data.get("names", [])
+    return _load_encodings_db_raw()
 
 
 def _save_encodings_db(encodings, names):
