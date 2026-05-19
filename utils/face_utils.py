@@ -188,6 +188,15 @@ def remove_person(name: str):
         # No faces left — save empty database
         _save_encodings_db([], [])
 
+    # Remove attendance records for this person
+    try:
+        if os.path.exists(ATTENDANCE_FILE):
+            df = pd.read_csv(ATTENDANCE_FILE)
+            df = df[df["Name"] != name]
+            df.to_csv(ATTENDANCE_FILE, index=False)
+    except Exception:
+        pass
+
     # Also try to remove image files (works locally, silently fails on cloud)
     faces_dir = KNOWN_FACES_DIR
     safe = name.strip().replace(" ", "_")
