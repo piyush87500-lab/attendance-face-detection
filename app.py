@@ -461,22 +461,26 @@ elif page == "👥 Manage Faces":
     st.markdown('<p class="page-title">👥 Manage Faces</p>', unsafe_allow_html=True)
     st.markdown('<p class="section-header">View and remove individuals from the database</p>', unsafe_allow_html=True)
 
-    faces_dir = "known_faces"
-    all_files = [f for f in os.listdir(faces_dir) if f.endswith((".jpg", ".jpeg", ".png"))]
-    names = sorted(set(f.rsplit("_", 1)[0].replace("_", " ") for f in all_files))
+    # Read names ONLY from the pickle database — not from image files
+    _, db_names = load_known_faces()
+    names = sorted(set(db_names))
 
     if not names:
         st.info("No faces registered yet. Go to **Register Face** to add someone.")
     else:
         for name in names:
             safe = name.replace(" ", "_")
-            imgs = [f for f in all_files if f.startswith(safe + "_") or f.startswith(safe)]
             col1, col2, col3 = st.columns([4, 1, 1])
             with col1:
-                st.markdown(f'<div class="face-box">👤 <strong>{name}</strong> &nbsp;<span style="color:#9a6b3a;font-size:0.75rem;">({len(imgs)} photo{"s" if len(imgs)>1 else ""})</span></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="face-box">👤 <strong>{name}</strong></div>', unsafe_allow_html=True)
             with col2:
+                # Try to show photo if it exists
+                faces_dir = "known_faces"
                 try:
-                    st.image(Image.open(os.path.join(faces_dir, imgs[0])), width=60)
+                    all_files = [f for f in os.listdir(faces_dir) if f.endswith((".jpg",".jpeg",".png"))]
+                    imgs = [f for f in all_files if f.startswith(safe + "_") or f.startswith(safe)]
+                    if imgs:
+                        st.image(Image.open(os.path.join(faces_dir, imgs[0])), width=60)
                 except Exception:
                     pass
             with col3:
