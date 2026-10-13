@@ -1,0 +1,17 @@
+{
+  "admin": {
+    "password": "admin123",
+    "role": "admin",
+    "display_name": "Administrator"
+  },
+  "piyush": {
+    "password": "student123",
+    "role": "student",
+    "display_name": "Piyush Choudhary"
+  },
+  "rahul": {
+    "password": "student456",
+    "role": "student",
+    "display_name": "Rahul Sharma"
+  }
+}
