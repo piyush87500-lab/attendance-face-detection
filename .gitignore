@@ -48,3 +48,6 @@ attendance/attendance.csv
  
 # Logs
 *.log
+
+# Do NOT ignore users.json
+!users.json
